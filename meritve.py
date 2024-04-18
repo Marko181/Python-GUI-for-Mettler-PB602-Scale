@@ -20,6 +20,8 @@ ser = serial.Serial(
     timeout=1  # Časovna omejitev za branje iz serijske povezave
 )
 
+ukazi = ["S", "SI", "SIR"]
+
 # Preveri, ali je povezava vzpostavljena
 if ser.is_open:
     print("Povezava vzpostavljena.")
