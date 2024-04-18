@@ -1,6 +1,7 @@
 import tkinter as tk
 import serial
 import threading
+import time
 
 # Function to handle continuous reading from the serial port
 def read_from_scale():
