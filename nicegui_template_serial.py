@@ -3,24 +3,34 @@
 
 from nicegui import ui
 import numpy as np
-from nicegui import ui
+
 import serial
+import serial.serialutil
+import serial.tools.list_ports
 import asyncio
 import atexit
 
+print("start")
 # Setup RS232 connection
-ser = serial.Serial(
-    port='COM1',  # Adjust according to the port you are using
-    baudrate=9600,  # Transmission rate, adjust according to device requirements
-    timeout=1  # Timeout for reading from the serial connection
-)
+ser = None
+
+from nicegui import ui
 
 # Check if the connection is established
-if ser.is_open:
-    connection_status = "Connection established."
+if ser is None or not ser.is_open:
+    print("Not Open")
+    try:
+        ser = serial.Serial(
+        port='COM1',  # Adjust according to the port you are using
+        baudrate=9600,  # Transmission rate, adjust according to device requirements
+        timeout=1  # Timeout for reading from the serial connection
+        )
+    except serial.serialutil.SerialException as e:
+        print("Failed to open", e)
 else:
-    connection_status = "Error establishing connection."
-    exit()
+    print("Connected")
+    
+    
 
 # Function to send a command and handle response asynchronously
 async def send_command(command):
@@ -28,8 +38,22 @@ async def send_command(command):
         input_field.set_text(command)
         ser.write((command + '\r\n').encode())  # Send the command
         await asyncio.sleep(1)  # Wait for the device to respond
-        response = ser.readline().decode().strip()  # Read the device's response
-        output_field.text = "Device response: " + response  # Display response
+        #print("Get response")
+        if command == 'S' or command == 'SI' or command == 'Z':
+            response = ser.readline().decode().strip()  # Read the device's response
+            output_field.text = response  # Display response
+        else:
+            while command == 'SIR' or command == 'ST' or command == 'SR':
+                if command == 'S' or command == 'SI' or command == 'Z':
+                    break
+                else:
+                    #print("Continous Read")
+                    print(command)
+                    response = ser.readline().decode().strip()  # Read the device's response
+                    output_field.text = response  # Display response
+                    await asyncio.sleep(0.1)
+                    #print("Continous Read Done")
+        #print("Print response")
     except Exception as e:
         output_field.text = "Error sending command: " + str(e)
 
@@ -134,4 +158,13 @@ with ui.row():
             ax.set_xlabel('X axis label', fontsize=14)
             ax.set_ylabel('Y axis label', fontsize=14)
 
-ui.run(port=8081)  # Specify the port for the NiceGUI server
+#import atexit
+# Function to close RS232 connection on shutdown
+def cleanup():
+    if ser.is_open:
+        ser.close()
+        print('Serial connection closed.')
+
+atexit.register(cleanup)
+
+ui.run(reload=False, port=8081)  # Specify the port for the NiceGUI server
