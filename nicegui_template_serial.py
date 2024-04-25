@@ -34,28 +34,33 @@ else:
 
 # Function to send a command and handle response asynchronously
 async def send_command(command):
+    global continue_reading
     try:
         input_field.set_text(command)
         ser.write((command + '\r\n').encode())  # Send the command
-        await asyncio.sleep(1)  # Wait for the device to respond
-        #print("Get response")
-        if command == 'S' or command == 'SI' or command == 'Z':
+        if command == 'SIR':
+            continue_reading = True
+            asyncio.create_task(read_continuously())
+        else:
+            continue_reading = False
+            await asyncio.sleep(1)  # Wait for the device to respond
             response = ser.readline().decode().strip()  # Read the device's response
             output_field.text = response  # Display response
-        else:
-            while command == 'SIR' or command == 'ST' or command == 'SR':
-                if command == 'S' or command == 'SI' or command == 'Z':
-                    break
-                else:
-                    #print("Continous Read")
-                    print(command)
-                    response = ser.readline().decode().strip()  # Read the device's response
-                    output_field.text = response  # Display response
-                    await asyncio.sleep(0.1)
-                    #print("Continous Read Done")
-        #print("Print response")
+
     except Exception as e:
         output_field.text = "Error sending command: " + str(e)
+
+async def read_continuously():
+    global continue_reading
+    try:
+        while continue_reading:
+            response = ser.readline().decode().strip()  # Continuously read the device's response
+            if response:  # Only update if there is a response
+                output_field.text = response
+            await asyncio.sleep(0.1)  # Short sleep to yield control and prevent blocking
+    except Exception as e:
+        output_field.text = "Error reading continuously: " + str(e)
+        continue_reading = False
 
 # Define the actions for each button press
 # def button_action(button_text):
