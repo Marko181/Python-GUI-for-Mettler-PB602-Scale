@@ -6,4 +6,4 @@
 - read from the scale
 - create GUI for 6 buttons
 - add current temperature, pressure, humidity, date and time
-- čas umerjanja tehtnice
+- get measuring time of the scale
