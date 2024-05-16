@@ -9,37 +9,16 @@ import atexit
 import time
 import requests
 import xml.etree.ElementTree as ET
-from nicegui import ui
 from datetime import datetime
 import numpy as np
-from state_mng import ser, prev_stanje, zacetni_cas, vmesni_cas, koncni_cas, teza_graf, cas_graf, serial_options
+from state_mng import ser, prev_stanje, zacetni_cas, vmesni_cas, koncni_cas, teza_graf, cas_graf, cas, serial_options
+from nicegui import ui
+
 
 ######################################################################################################
 ##### FUNCTION DEFINITIONS ###########################################################################
 ######################################################################################################
 
-# Function for hiding and showing error message
-def update_error_msg_visibility(ser):
-    if ser is None or not ser.is_open:
-        row.visible = True
-        row1.visible = True
-        b1.disable()
-        b2.disable()
-        b3.disable()
-        b4.disable()
-        b5.disable()
-        b6.disable()
-        b7.disable()
-    else:
-        row.visible = False
-        row1.visible = False
-        b1.enable()
-        b2.enable()
-        b3.enable()
-        b4.enable()
-        b5.enable()
-        b6.enable()
-        b7.enable()
 
 # Scan serial ports
 def scan_serial():
@@ -50,7 +29,8 @@ def scan_serial():
     # serial_options se mora vpisati spodaj v spremenljivko za dejanski selector
 
 # Check if the connection is established
-def connect_serial(ser, selected_port):
+def connect_serial(selected_port):
+    global ser
     if ser is None or not ser.is_open:
         print("Serial Connection Not Open")
         try:
@@ -61,21 +41,47 @@ def connect_serial(ser, selected_port):
             timeout=1  # Timeout for reading from the serial connection
             )
             print("Connected")
-            update_error_msg_visibility(ser)
+            update_error_msg_visibility()
             error_message.text = ''
         except serial.serialutil.SerialException as e:
             print("Failed to open", e)
             error_message.text = "Connection with serial failed! Try another port!"
-            update_error_msg_visibility(ser)
+            update_error_msg_visibility()
     else:
         print("Serial Connected")
+        update_error_msg_visibility()
+
+# Function for hiding and showing error message
+def update_error_msg_visibility():
+    if ser is None or not ser.is_open:
+        row.visible = True
+        row1.visible = True
+        b1.disable()
+        b2.disable()
+        b3.disable()
+        b4.disable()
+        b5.disable()
+        b6.disable()
+        b7.disable()
+        b8.disable()
+    else:
+        row.visible = False
+        row1.visible = False
+        b1.enable()
+        b2.enable()
+        b3.enable()
+        b4.enable()
+        b5.enable()
+        b6.enable()
+        b7.enable()
+        b8.enable()
 
 # Reconnect serial
-def reconnect_serial(ser):
+def reconnect_serial():
     selected_value = com_select.value
     selected_com = serial_options[selected_value]
 
-    connect_serial(ser, selected_com)
+    connect_serial(selected_com)
 
 # Function to update the time
 async def update_time(ura):
@@ -89,17 +95,17 @@ def timer_callback():
 # Function to get weather data
 def get_weather():
     # URL of the XML file
-    url = 'https://meteo.arso.gov.si/uploads/probase/www/observ/surface/text/sl/observationAms_LJUBL-ANA_BEZIGRAD_latest.xml'
-    #url = ''
+    #url = 'https://meteo.arso.gov.si/uploads/probase/www/observ/surface/text/sl/observationAms_LJUBL-ANA_BEZIGRAD_latest.xml'
+    url = ''
 
     # Fetch the XML file
     try:
-        response = requests.get(url)
+        response_arso = requests.get(url)
 
         # Check if the request was successful
-        if response.status_code == 200:
+        if response_arso.status_code == 200:
             # Parse the XML content
-            root = ET.fromstring(response.content)
+            root = ET.fromstring(response_arso.content)
             
             # Extracting specific data based on the tag names provided
             temperature = root.find('.//t')
@@ -123,7 +129,7 @@ def get_weather():
             else:
                 pritisk.text = "NaN"
         else:
-            print("Failed to retrieve the XML file. Status code:", response.status_code)
+            print("Failed to retrieve the XML file. Status code:", response_arso.status_code)
     except Exception as e:
         print("Error in accessing weather data: ", e)
 
@@ -137,21 +143,24 @@ async def wait_response(ser):
         await asyncio.sleep(0.1)  # Wait for the device to respond
 
 # Function for calculating time of measurment
-def cas_umeritve(response):
+async def cas_umeritve(response):
     global prev_stanje
     global zacetni_cas
     global vmesni_cas
     global koncni_cas
     global teza_graf
     global cas_graf
+    global cas
     stanje_tehnice = response[2]
 
     try:
         if stanje_tehnice == 'D' and prev_stanje == 'S' and prev_stanje is not None:
             zacetni_cas = time.time()
+            koncni_cas = None
             cas = 0.0
             teza_graf = []
             cas_graf = []
+            ax.clear
         elif stanje_tehnice == 'D':
             vmesni_cas = time.time()
             cas = vmesni_cas - zacetni_cas
@@ -165,14 +174,37 @@ def cas_umeritve(response):
         if cas < 0.0:
             cas = 0.0
 
-        teza_graf.append(float(response[1:-1].strip()))
+        teza_graf.append(float(response[4:-2].strip()))
         cas_graf.append(cas)
+
+        print(teza_graf)
+        print(cas_graf)
+
+        #draw_plot()
 
     except Exception as e:
         print('Exception cas umeritve: ', e)
         pass
     prev_stanje = stanje_tehnice
+
+    if zacetni_cas is not None and koncni_cas is not None:
+        raise Exception("Stop continous read")
+
     return cas
+
+# Function to draw a plot
+def draw_plot():
+    with fig:
+        ax.clear()
+        x = cas_graf
+        y = teza_graf
+        # x = [0.0, 0.11226630210876465, 0.2956056594848633, 0.4954662322998047, 0.5893375873565674, 0.7954599857330322, 0.9142954349517822, 1.096367359161377, 1.2964608669281006, 1.4016785621643066, 1.6056127548217773, 1.705721139907837, 1.8956196308135986, 2.010911226272583, 2.2155606746673584]
+        # y = [0.01, 0.37, 25.29, 101.82, 165.93, 182.71, 196.42, 199.38, 199.76, 199.97, 199.99, 199.99, 199.99, 199.99, 199.99]
+        ax.plot(x, y, '-')
+        ax.set_title('Time to measure stable weight', fontsize=20)
+        ax.set_xlabel('Measuring Time [s]', fontsize=14)
+        ax.set_ylabel('Weight [g]', fontsize=14)
+    fig.canvas.draw()
 
 # Function to send a command and handle response asynchronously
 async def send_command(command):
@@ -215,40 +247,47 @@ async def read_continuously():
                 output_field.text = ''
 
             if command_flag:
-                t_umiritve = cas_umeritve(response)
+                t_umiritve = await cas_umeritve(response)
                 t_umiritve_str = str(round(t_umiritve,3))
                 cas_umerjanja_field.text = t_umiritve_str + ' s'
     except Exception as e:
-        error_message.text = "Error reading continuously: " + str(e)
+        #error_message.text = "Error reading continuously: " + str(e)
         continue_reading = False
+        command_flag = False
+        draw_plot()
 
-def count_objects():
+async def set_ref_weight():
+    global ref_weight
+    output_field.text = ''
+
+    # Send command to get current stable weight
+    await send_command('S')
+
+    measured_weight_ref = output_field.text[4:-2].strip()
+    #measured_weight_ref = "20.0"
+
+    ref_weight = float(measured_weight_ref)/float(num_of_ref_weights.value)
+    ref_weight_label.text = 'Reference weight: ' + str(ref_weight) + ' g'
+
+async def count_objects():
     # Set output field to empty
     output_field.text = ''
 
     # Send command to get current stable weight
-    #send_command('S')
-    #measured_weight = float(output_field.text[1:-1].strip())
-    measured_weight = 50.0
+    await send_command('S')
 
-    # Get weight from selector
-    selected_value = weight_select.value
-    weight_str = weight_options[selected_value]
-    weight = float(weight_str)
+    measured_weight = output_field.text[4:-2].strip()
+    #measured_weight = "50.0"
 
     # Calculate number of objects
-    num_objects = measured_weight/weight
+    num_objects = float(measured_weight)/ref_weight
     num_objects_label.text = str(round(num_objects))
 
-# Function to close RS232 connection on shutdown
-def cleanup():
-    if ser.is_open:
-        ser.close()
-        print('Serial connection closed.')
 
 ######################################################################################################
 ##### GUI CODE #######################################################################################
 ######################################################################################################
+
 
 # Define styles
 label_style = 'font-size: 20px; font-weight: bold;'
@@ -310,6 +349,7 @@ with ui.row():
 
             with ui.column().style('padding-left:20px;'):
                 b4 = ui.button('Get Weight Live', on_click=lambda: send_command('SIR')).style(button_style2) # RGB for Orange: (255, 165, 0) or RGB for Amber: (255, 191, 0)  
+                #b4 = ui.button('Get Weight Live', on_click=lambda: draw_plot()).style(button_style2)
                 b5 = ui.button('Get Stable Weight Live', on_click=lambda: send_command('SR')).style(button_style2)  # RGB for Orange: (255, 165, 0) or RGB for Amber: (255, 191, 0)
                 b6 = ui.button('Get Weight on Key Press', on_click=lambda: send_command('ST')).style(button_style4) # RGB for Purple: (128, 0, 128) or RGB for Light Blue: (173, 216, 230)
 
@@ -335,40 +375,44 @@ with ui.row():
                     com_select = ui.select(serial_options, value=1)
                 # Reconnect button
                 with ui.column().style('padding-left:20px') as row1:
-                    retry_ser_con = ui.button('Retry', on_click=lambda: reconnect_serial(ser)).style('background-color:yellow !important; color: black !important;')
+                    retry_ser_con = ui.button('Retry', on_click=lambda: reconnect_serial()).style('background-color:yellow !important; color: black !important;')
         # Plot
         with ui.row():
             with ui.matplotlib(figsize=(9, 5)).figure as fig:
-                x = np.linspace(0.0, 5.0)
-                y = np.cos(2 * np.pi * x) * np.exp(-x)
-                # x = cas_graf
-                # y = teza_graf
                 ax = fig.gca()
-                ax.plot(x, y, '-')
                 ax.set_title('Time to measure stable weight', fontsize=20)
                 ax.set_xlabel('Measuring Time [s]', fontsize=14)
                 ax.set_ylabel('Weight [g]', fontsize=14)
 
     with ui.row().style('align-items: center; padding-left:20px;'):
             with ui.column():
-                ui.label('Count objects each weighing [g]: ').style('font-size: 20px; font-weight: bold;')
+                ui.label('Number of reference objects: ').style('font-size: 20px; font-weight: bold;')
             with ui.column():
-                weight_options = {1: '1.0', 2: '2.0', 3: '5.0', 4: '10.0', 5: '50.0', 6: '100.0', 7: '200.0', 8: '500.0'}
-                weight_select = ui.select(weight_options, value=1).style('font-size: 20px;')
+                num_of_ref_weights = ui.number(value=1, min=1).style('width:100px; font-size: 18px;')
+            with ui.column():
+                b7 = ui.button('Get ref weight', on_click=lambda: set_ref_weight()).style('font-size: 18px; padding-bottom:5px; font-weight:bold; align-items: center;')
+            with ui.column():
+                ref_weight_label = ui.label('').style('font-size: 20px; font-weight: bold;')
             with ui.column().style('padding-left:5px; padding-right:5px'):
-                b7 = ui.button('Count objects', on_click=lambda: count_objects()).style('font-size: 18px; padding-bottom:5px; font-weight:bold; align-items: center;')
+                b8 = ui.button('Count objects', on_click=lambda: count_objects()).style('font-size: 18px; padding-bottom:5px; font-weight:bold; align-items: center;')
             with ui.column().style('padding-left:20px'):
                 ui.label('Counted objects: ').style('font-size: 20px; font-weight: bold;')
             with ui.column():
                 num_objects_label = ui.label('').style('font-size: 25px; font-weight: bold;')
 
-connect_serial(ser, 'COM1')
+connect_serial('COM1')
 
-update_error_msg_visibility(ser)
+update_error_msg_visibility()
 
 ui.timer(1, timer_callback)
 
 get_weather()
+
+# Function to close RS232 connection on shutdown
+def cleanup():
+    if ser.is_open:
+        ser.close()
+        print('Serial connection closed.')
 
 atexit.register(cleanup)
 
