@@ -5,4 +5,5 @@ vmesni_cas = None
 koncni_cas = None
 teza_graf = [0.0]
 cas_graf = [0.0]
+cas = None
 serial_options = {}
