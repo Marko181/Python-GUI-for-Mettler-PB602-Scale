@@ -7,3 +7,4 @@
 - create GUI for 6 buttons
 - add current temperature, pressure, humidity, date and time
 - get measuring time of the scale
+- count the number of weights on the scale
