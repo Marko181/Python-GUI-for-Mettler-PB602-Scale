@@ -177,18 +177,18 @@ async def cas_umeritve(response):
         teza_graf.append(float(response[4:-2].strip()))
         cas_graf.append(cas)
 
-        print(teza_graf)
-        print(cas_graf)
+        # print(teza_graf)
+        # print(cas_graf)
 
-        #draw_plot()
+        draw_plot()
 
     except Exception as e:
         print('Exception cas umeritve: ', e)
         pass
     prev_stanje = stanje_tehnice
 
-    if zacetni_cas is not None and koncni_cas is not None:
-        raise Exception("Stop continous read")
+    # if zacetni_cas is not None and koncni_cas is not None:
+    #     raise Exception("Stop continous read")
 
     return cas
 
@@ -213,27 +213,38 @@ async def send_command(command):
     try:
         input_field.set_text(command)
         ser.write((command + '\r\n').encode())  # Send the command
-        if command == 'SIR' or command == 'SR' or command == 'ST':
+        if command == 'SIR' or command == 'SR':# or command == 'ST':
             if command == 'SIR':
                 command_flag = True
+            else:
+                command_flag = False
+            
             continue_reading = True
             asyncio.create_task(read_continuously())
         else:
             continue_reading = False
             response = await wait_response(ser)
             #print(response)
-            if len(response) < 17:
+            if response == 'I4 A "1116241108"':
+                output_field.text = "Reset complete!"
+                error_message.text = ''
+                cas_umerjanja_field.text = ''
+            elif len(response) < 17:
                 output_field.text = response
                 error_message.text = ''
+                cas_umerjanja_field.text = ''
             else:
                 error_message.text = response
                 output_field.text = ''
+                ref_weight_label.text = ''
+                num_objects_label.text = ''
     except Exception as e:
         error_message.text = "Error sending command: " + str(e)
 
 # Function to read continously from serial
 async def read_continuously():
     global continue_reading
+    global command_flag
     try:
         while continue_reading:
             #if response:  # Only update if there is a response
@@ -250,11 +261,13 @@ async def read_continuously():
                 t_umiritve = await cas_umeritve(response)
                 t_umiritve_str = str(round(t_umiritve,3))
                 cas_umerjanja_field.text = t_umiritve_str + ' s'
+                ref_weight_label.text = ''
+                num_objects_label.text = ''
     except Exception as e:
-        #error_message.text = "Error reading continuously: " + str(e)
+        error_message.text = "Error reading continuously: " + str(e)
         continue_reading = False
         command_flag = False
-        draw_plot()
+        #draw_plot()
 
 async def set_ref_weight():
     global ref_weight
@@ -267,7 +280,7 @@ async def set_ref_weight():
     #measured_weight_ref = "20.0"
 
     ref_weight = float(measured_weight_ref)/float(num_of_ref_weights.value)
-    ref_weight_label.text = 'Reference weight: ' + str(ref_weight) + ' g'
+    ref_weight_label.text = 'Reference weight: ' + str(round(ref_weight,3)) + ' g'
 
 async def count_objects():
     # Set output field to empty
@@ -351,7 +364,8 @@ with ui.row():
                 b4 = ui.button('Get Weight Live', on_click=lambda: send_command('SIR')).style(button_style2) # RGB for Orange: (255, 165, 0) or RGB for Amber: (255, 191, 0)  
                 #b4 = ui.button('Get Weight Live', on_click=lambda: draw_plot()).style(button_style2)
                 b5 = ui.button('Get Stable Weight Live', on_click=lambda: send_command('SR')).style(button_style2)  # RGB for Orange: (255, 165, 0) or RGB for Amber: (255, 191, 0)
-                b6 = ui.button('Get Weight on Key Press', on_click=lambda: send_command('ST')).style(button_style4) # RGB for Purple: (128, 0, 128) or RGB for Light Blue: (173, 216, 230)
+                #b6 = ui.button('Get Weight on Key Press', on_click=lambda: send_command('ST')).style(button_style4) # RGB for Purple: (128, 0, 128) or RGB for Light Blue: (173, 216, 230)
+                b6 = ui.button('Reset', on_click=lambda: send_command('@')).style(button_style4)
 
                 ui.label('Measurement:').style('font-size: 25px; padding-top:5px; font-weight: bold;')
                 output_field = ui.label('').style('font-size: 30px; font-weight: bold;')
