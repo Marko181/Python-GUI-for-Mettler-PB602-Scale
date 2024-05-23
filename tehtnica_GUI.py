@@ -95,8 +95,7 @@ def timer_callback():
 # Function to get weather data
 def get_weather():
     # URL of the XML file
-    #url = 'https://meteo.arso.gov.si/uploads/probase/www/observ/surface/text/sl/observationAms_LJUBL-ANA_BEZIGRAD_latest.xml'
-    url = ''
+    url = 'https://meteo.arso.gov.si/uploads/probase/www/observ/surface/text/sl/observationAms_LJUBL-ANA_BEZIGRAD_latest.xml'
 
     # Fetch the XML file
     try:
