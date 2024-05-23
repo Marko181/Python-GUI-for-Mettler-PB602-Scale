@@ -15,4 +15,8 @@
 3. Install following python libraries:
    ```bash
    pip install nicegui
+   
+   pip install requests
+
+   pip install serial
 4. Run tehtnica_GUI.py
