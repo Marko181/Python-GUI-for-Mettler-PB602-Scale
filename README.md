@@ -13,6 +13,6 @@
 1. Connect Mettler PB602 scale with your PC
 2. Download files: [tehtnica_GUI.py](tehtnica_GUI.py) and [state_mng.py](state_mng.py)
 3. Install following python libraries:
-   ```terminal
+   ```bash
    pip install nicegui
 4. Run tehtnica_GUI.py
