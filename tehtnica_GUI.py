@@ -96,6 +96,7 @@ def timer_callback():
 def get_weather():
     # URL of the XML file
     url = 'https://meteo.arso.gov.si/uploads/probase/www/observ/surface/text/sl/observationAms_LJUBL-ANA_BEZIGRAD_latest.xml'
+    #url = ''
 
     # Fetch the XML file
     try:
@@ -137,6 +138,7 @@ async def wait_response(ser):
     while True:
         if ser.in_waiting > 0:
             response = ser.readline().decode().strip()  # Read the device's response
+            #response = ser.readline().decode(errors='ignore').strip() # Read the device's response
             if response:
                 return response
         await asyncio.sleep(0.1)  # Wait for the device to respond
@@ -222,6 +224,8 @@ async def send_command(command):
             asyncio.create_task(read_continuously())
         else:
             continue_reading = False
+            # Reset serial input buffer
+            ser.reset_input_buffer()
             response = await wait_response(ser)
             #print(response)
             if response == 'I4 A "1116241108"':
